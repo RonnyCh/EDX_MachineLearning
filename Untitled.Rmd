@@ -1,0 +1,63 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+
+
+
+Chapter 31 Case study: Election forecasting
+
+In a previous section, we generated these data tables:
+
+```{r}
+polls <- polls_us_election_2016 %>% 
+  filter(state == "U.S." & enddate >= "2016-10-31" &
+           (grade %in% c("A+","A","A-","B+") | is.na(grade))) %>% 
+  mutate(spread = rawpoll_clinton/100 - rawpoll_trump/100)
+
+one_poll_per_pollster <- polls %>% group_by(pollster) %>% 
+  filter(enddate == max(enddate)) %>%
+  ungroup()
+
+results <- one_poll_per_pollster %>% 
+  summarize(avg = mean(spread), se = sd(spread)/sqrt(length(spread))) %>% 
+  mutate(start = avg - 1.96*se, end = avg + 1.96*se) 
+```
+
+Below, we will use these for our forecasting.
+
+31.1 Bayesian approach
+
+Pollsters tend to make probabilistic statements about the results of the election. For example, “The chance that Obama wins the electoral colleges is 91%” is a probabilistic statement about the parameter  
+d
+ . We showed that for the 2016 election, FiveThirtyEight gave Clinton a 81.4% chance of winning the popular vote. To do this, they used the Bayesian approach we described.
+
+We assume a hierarchical model similar to what we did to predict the performance of a baseball player. Statistical textbooks will write the model like this:
