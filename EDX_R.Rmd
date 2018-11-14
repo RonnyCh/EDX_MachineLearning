@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Harvardx Machine Learning"
 output: html_document
 ---
 
@@ -7,57 +7,64 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-
-
-
-
-
-
-Chapter 31 Case study: Election forecasting
-
-In a previous section, we generated these data tables:
+Comprehension Check: Distance
+Q1
+1/1 point (graded) Load the following dataset:
 
 ```{r}
-polls <- polls_us_election_2016 %>% 
-  filter(state == "U.S." & enddate >= "2016-10-31" &
-           (grade %in% c("A+","A","A-","B+") | is.na(grade))) %>% 
-  mutate(spread = rawpoll_clinton/100 - rawpoll_trump/100)
+library(dslabs)
+data("tissue_gene_expression")
 
-one_poll_per_pollster <- polls %>% group_by(pollster) %>% 
-  filter(enddate == max(enddate)) %>%
-  ungroup()
+dim(tissue_gene_expression$x)
 
-results <- one_poll_per_pollster %>% 
-  summarize(avg = mean(spread), se = sd(spread)/sqrt(length(spread))) %>% 
-  mutate(start = avg - 1.96*se, end = avg + 1.96*se) 
+table(tissue_gene_expression$y)
+
 ```
 
-Below, we will use these for our forecasting.
+This matrix has the gene expression levels of 500 genes from 189 biological samples representing seven different tissues. The tissue type is stored in y:
+Which of the following lines of code computes the Euclidean distance between each observation and stores it in the object d?
 
-31.1 Bayesian approach
 
-Pollsters tend to make probabilistic statements about the results of the election. For example, “The chance that Obama wins the electoral colleges is 91%” is a probabilistic statement about the parameter  
-d
- . We showed that for the 2016 election, FiveThirtyEight gave Clinton a 81.4% chance of winning the popular vote. To do this, they used the Bayesian approach we described.
 
-We assume a hierarchical model similar to what we did to predict the performance of a baseball player. Statistical textbooks will write the model like this:
+```{r}
+d <- dist(tissue_gene_expression$x)
+head(d)
+```
+
+
+Q2
+1/1 point (graded) Compare the distances between observations 1 and 2 (both cerebellum), observations 39 and 40 (both colon), and observations 73 and 74 (both endometrium).
+Answer
+Yes, the samples from the same tissue type are closest to each other. correct
+
+
+Q3
+1/1 point (graded) Make a plot of all the distances using the image function to see if the pattern you observed in Q2 is general.
+Which code would correctly make the desired plot?
+
+```{r}
+image(as.matrix(d))
+
+ind <- c(1, 2, 39, 40, 73, 74)
+as.matrix(d)[ind,ind]
+```
+
+# KNN
+
+```{r}
+library(caret)
+library(dslabs)
+fit_glm <- glm(y~x_1 + x_2, data=mnist_27$train, family = "binomial")
+p_hat_logistic <- predict(fit_glm,mnist_27$test)
+y_hat_logistic <- factor(ifelse(p_hat_logistic > 0.5, 7, 2))
+#confusionMatrix(data = y_hat_logistic, reference = mnist_27$test$y)$overall[1]
+
+knn_fit <- knn3(y~.,data=mnist_27$train)
+knn_fit
+```
+
+
+
+Comprehension Check: Nearest Neighbors
+Q1
+2 points possible (graded) Previously, we used logistic regression to predict sex based on height. Now we are going to use knn to do the same. Use the code described in these videos to select the F_1 measure and plot it against k. Compare to the F_1 of about 0.6 we obtained with regression. Set the seed to 1.
