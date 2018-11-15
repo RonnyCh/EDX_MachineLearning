@@ -1,8 +1,15 @@
 # EDX_MachineLearning
-Codes related to EDX Questions
 
-OK, MAKE SOME SMALL CHANGES FOR TESTING
+…or create a new repository on the command line
+echo "# test" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git remote add origin https://github.com/RonnyCh/test.git
+git push -u origin master
 
-Another small change...
 
-Let's see if I can push this.
+
+…or push an existing repository from the command line
+git remote add origin https://github.com/RonnyCh/test.git
+git push -u origin master
