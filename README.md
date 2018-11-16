@@ -11,6 +11,9 @@ git remote add origin https://github.com/RonnyCh/test.git
 
 git push -u origin master
 
+# to change the url just in case you mistype
+
+git remote set-url origin https://github.com/RonnyCh/test.git
 
 # or push an existing repository from the command line
 
