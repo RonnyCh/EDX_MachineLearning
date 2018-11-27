@@ -181,3 +181,94 @@ sd(q_75_star)
 ```
 
 
+
+
+# Notes from Rafalab regarding generative model
+
+Let’s start with a very simple and uninteresting, yet illustrative, case: the example related to predicting sex from height.
+
+```{r}
+library(caret)
+library(dslabs)
+data("heights")
+y <- heights$height
+set.seed(2)
+test_index <- createDataPartition(y, times = 1, p = 0.5, list = FALSE)
+train_set <- heights %>% slice(-test_index)
+test_set <- heights %>% slice(test_index)
+```
+
+Using the predictor under the assumption it is normal distribution
+
+```{r}
+params <- train_set %>% 
+  group_by(sex) %>% 
+  summarize(avg = mean(height), sd = sd(height))
+params
+```
+
+The prevalence, which we will denote with  
+π=Pr(Y=1), can be estimated from the data with:
+
+
+```{r}
+pi <- train_set %>% 
+  summarize(pi=mean(sex=="Female")) %>% 
+  .$pi
+pi
+```
+
+Now we can use our estimates of average and standard deviation to get an actual rule:
+
+```{r}
+x <- test_set$height
+
+f0 <- dnorm(x, params$avg[2], params$sd[2])
+f1 <- dnorm(x, params$avg[1], params$sd[1])
+
+p_hat_bayes <- f1*pi / (f1*pi + f0*(1 - pi))
+plot(x,p_hat_bayes)
+```
+
+
+# Controlling prevalence
+As we discussed earlier, our sample has a much lower prevalence, 0.229, than the general population. So if we use the rule  p(x)>0.5 to predict females, our accuracy will be affected due to the low sensitivity:
+
+
+```{r}
+y_hat_bayes <- ifelse(p_hat_bayes > 0.5, "Female", "Male")
+sensitivity(data = factor(y_hat_bayes), reference = factor(test_set$sex))
+```
+
+Again, this is because the algorithm gives more weight to specificity to account for the low prevalence:
+
+```{r}
+specificity(data = factor(y_hat_bayes), reference = factor(test_set$sex))
+```
+
+This is due mainly to the fact that π is substantially less than 0.5, so we tend to predict Male more often. It makes sense for a machine learning algorithm to do this in our sample because we do have a higher percentage of males. But if we were to extrapolate this to a general population, our overall accuracy would be affected by the low sensitivity.
+
+The Naive Bayes approach gives us a direct way to correct this since we can simply force  
+pi to be, for example,  π. So to balance specificity and sensitivity, instead of changing the cutoff in the decision rule, we could simply change  π:
+
+
+```{r}
+p_hat_bayes_unbiased <- f1*0.5 / (f1*0.5 + f0*(1-0.5)) 
+y_hat_bayes_unbiased <- ifelse(p_hat_bayes_unbiased> 0.5, "Female", "Male")
+
+
+sensitivity(data = factor(y_hat_bayes_unbiased), reference = factor(test_set$sex))
+specificity(data = factor(y_hat_bayes_unbiased), reference = factor(test_set$sex))
+
+```
+
+Note the difference in sensitivity with a better balance:
+
+The new rule also gives us a very intuitive cutoff between 66-67, which is about the middle of the female and male average heights:
+
+```{r}
+qplot(x, p_hat_bayes_unbiased, geom = "line") + 
+  geom_hline(yintercept = 0.5, lty = 2) + 
+  geom_vline(xintercept = 67, lty = 2)
+```
+
