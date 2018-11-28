@@ -589,8 +589,108 @@ ggplot(rf, highlight = TRUE)
 # Q3
 
 ```{r}
-fit <- rpart(margin ~ ., data = polls_2008)
-plot(fit, margin = 0.1)
-text(fit, cex = 0.75)
+library(caret)
+library(rpart)
+library(dslabs)
+data(tissue_gene_expression)
+fit <- rpart(y ~ x, data = tissue_gene_expression, control = rpart.control(cp = 0.02, minsplit = 2))
+confusionMatrix(predict(fit,tissue_gene_expression,type="class"),tissue_gene_expression$y)$overall["Accuracy"]
+```
+
+
+
+
+# Q3
+Use the rpart function to fit a classification tree to the tissue_gene_expression dataset. Use the train function to estimate the accuracy. Try out cp values of seq(0, 0.1, 0.01). Plot the accuracies to report the results of the best model. Set the seed to 1991.
+
+Which value of cp gives the highest accuracy?
+
+```{r}
+library(caret)
+library(dslabs)
+set.seed(1991)
+data("tissue_gene_expression")
+    
+fit <- with(tissue_gene_expression, 
+                train(x, y, method = "rpart",
+                      tuneGrid = data.frame(cp = seq(0, 0.1, 0.01))))
+    
+ggplot(fit)            
+```
+
+
+```{r}
+confusionMatrix(fit)
+```
+
+
+# Q5
+Note that there are only 6 placentas in the dataset. By default, rpart requires 20 observations before splitting a node. That means that it is difficult to have a node in which placentas are the majority. Rerun the analysis you did in the exercise in Q3, but this time, allow rpart to split any node by using the argument control = rpart.control(minsplit = 0). Look at the confusion matrix again to determine whether the accuracy increases. Again, set the seed to 1991.
+
+What is the accuracy now?
+
+```{r}
+library(caret)
+library(dslabs)
+set.seed(1991)
+data("tissue_gene_expression")
+    
+fit <- with(tissue_gene_expression, 
+                train(x, y, method = "rpart",
+                      control = rpart.control(minsplit = 0),
+                      tuneGrid = data.frame(cp = seq(0, 0.1, 0.01))))
+    
+confusionMatrix(fit)       
+```
+
+# Q6
+
+Plot the tree from the best fitting model of the analysis you ran in Q5.
+Which gene is at the first split?
+
+```{r}
+plot(fit$finalModel, margin = 0.1)
+text(fit$finalModel, cex = 0.75)
+```
+
+# Q7
+We can see that with just seven genes, we are able to predict the tissue type. Now let's see if we can predict the tissue type with even fewer genes using a Random Forest. Use the train function and the rf method to train a Random Forest. Try out values of mtry ranging from seq(50, 200, 25) (you can also explore other values on your own). What mtry value maximizes accuracy? To permit small nodesize to grow as we did with the classification trees, use the following argument: nodesize = 1.
+
+Note: This exercise will take some time to run. If you want to test out your code first, try using smaller values with ntree. Set the seed to 1991 again.
+
+What value of mtry maximizes accuracy?
+
+```{r}
+library(caret)
+library(dslabs)
+set.seed(1991)
+data("tissue_gene_expression")
+    
+fit <- with(tissue_gene_expression, 
+                train(x, y, method = "rf",
+                      nodesize = 1,
+                      tuneGrid = data.frame(mtry = seq(50, 200, 25))))
+    
+confusionMatrix(fit)       
+
+```
+
+# Q8
+
+Use the function varImp on the output of train and save it to an object called imp.
+
+```{r}
+imp <- varImp(fit)
+```
+
+
+
+
+```{r}
+library(dplyr)
+data_frame(term = rownames(imp$importance), 
+			importance = imp$importance$Overall) %>%
+	mutate(rank = rank(-importance)) %>% arrange(desc(importance)) %>%
+	filter(term %in% tree_terms)
 ```
 
