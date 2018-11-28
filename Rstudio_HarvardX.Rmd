@@ -3,6 +3,104 @@ title: "Harvardx Machine Learning"
 output: html_notebook
 ---
 
+
+# Comprehension Check: Smoothing
+
+In the Wrangling course of this series, PH125.6x, we used the following code to obtain mortality counts for Puerto Rico for 2015-2018:
+
+
+
+```{r}
+library(tidyverse)
+library(purrr)
+library(pdftools)
+library(lubridate)
+    
+fn <- system.file("extdata", "RD-Mortality-Report_2015-18-180531.pdf", package="dslabs")
+dat <- map_df(str_split(pdf_text(fn), "\n"), function(s){
+	s <- str_trim(s)
+	header_index <- str_which(s, "2015")[1]
+	tmp <- str_split(s[header_index], "\\s+", simplify = TRUE)
+	month <- tmp[1]
+	header <- tmp[-1]
+	tail_index  <- str_which(s, "Total")
+	n <- str_count(s, "\\d+")
+	out <- c(1:header_index, which(n==1), which(n>=28), tail_index:length(s))
+	s[-out] %>%
+		str_remove_all("[^\\d\\s]") %>%
+		str_trim() %>%
+		str_split_fixed("\\s+", n = 6) %>%
+		.[,1:5] %>%
+		as_data_frame() %>% 
+		setNames(c("day", header)) %>%
+		mutate(month = month,
+			day = as.numeric(day)) %>%
+		gather(year, deaths, -c(day, month)) %>%
+		mutate(deaths = as.numeric(deaths))
+}) %>%
+	mutate(month = recode(month, "JAN" = 1, "FEB" = 2, "MAR" = 3, "APR" = 4, "MAY" = 5, "JUN" = 6, 
+                          "JUL" = 7, "AGO" = 8, "SEP" = 9, "OCT" = 10, "NOV" = 11, "DEC" = 12)) %>%
+	mutate(date = make_date(year, month, day)) %>%
+	filter(date <= "2018-05-01")
+```
+
+
+```{r}
+span <- 60 / as.numeric(diff(range(dat$date)))
+fit <- dat %>% mutate(x = as.numeric(date)) %>% loess(deaths ~ x, data = ., span = span, degree = 1)
+dat %>% mutate(smooth = predict(fit, as.numeric(date))) %>%
+	ggplot() +
+	geom_point(aes(date, deaths)) +
+	geom_line(aes(date, smooth), lwd = 2, col = 2)
+```
+
+
+# Q2 
+Work with the same data as in Q1 to plot smooth estimates against day of the year, all on the same plot, but with different colors for each year.
+Which code produces the desired plot?
+
+```{r}
+dat %>% 
+	mutate(smooth = predict(fit, as.numeric(date)), day = yday(date), year = as.character(year(date))) %>%
+	ggplot(aes(day, smooth, col = year)) +
+	geom_line(lwd = 2)
+```
+
+
+
+# Q3
+Suppose we want to predict 2s and 7s in the mnist_27 dataset with just the second covariate. Can we do this? On first inspection it appears the data does not have much predictive power.
+
+In fact, if we fit a regular logistic regression the coefficient for x_2 is not significant!
+
+This can be seen using this code:
+```{r}
+library(broom)
+mnist_27$train %>% glm(y ~ x_2, family = "binomial", data = .) %>% tidy()
+```
+
+Plotting a scatterplot here is not useful since y is binary:
+```{r}
+qplot(x_2, y, data = mnist_27$train)
+```
+
+Explanation
+Note that there is indeed predictive power, but that the conditional probability is non-linear.
+The loess line can be plotted using the following code:
+
+```{r}
+mnist_27$train %>% 
+	mutate(y = ifelse(y=="7", 1, 0)) %>%
+	ggplot(aes(x_2, y)) + 
+	geom_smooth(method = "loess")
+```
+
+
+
+
+
+
+
 # Comprehension Check: Cross-validation
 
 # Q1
@@ -393,4 +491,106 @@ ind <- order(abs(d), decreasing = TRUE)[1:2]
 plot(x[, ind], col = y)
 ```
 
+```{r}
+set.seed(1993)
+data("tissue_gene_expression")
+y <- tissue_gene_expression$y
+x <- tissue_gene_expression$x
+x <- x[, sample(ncol(x), 10)]
+```
+```{r}
+fit_lda <- train(x, y, method = "lda", preProcess = "center")
+fit_lda$results["Accuracy"]
+```
+
+
+
+# Comprehension Check: Trees and Random Forests
+
+# Q1
+Create a simple dataset where the outcome grows 0.75 units on average for every increase in a predictor, using this code:
+```{r}
+library(rpart)
+n <- 1000
+sigma <- 0.25
+x <- rnorm(n, 0, 1)
+y <- 0.75 * x + rnorm(n, 0, sigma)
+dat <- data.frame(x = x, y = y)
+```
+
+Which code correctly uses rpart to fit a regression tree and saves the result to fit?
+
+```{r}
+fit <- rpart(y ~ ., data = dat)
+```
+
+```{r}
+plot(fit, margin = 0.1)
+text(fit, cex = 0.75)
+```
+
+# Q3
+Below is most of the code to make a scatter plot of y versus x along with the predicted values based on the fit.
+
+```{r}
+
+dat %>% 
+	mutate(y_hat = predict(fit)) %>% 
+	ggplot() +
+	geom_point(aes(x, y)) +
+	geom_step(aes(x, y_hat), col=2)
+```
+
+# Q4
+
+Now run Random Forests instead of a regression tree using randomForest from the __randomForest__ package, and remake the scatterplot with the prediction line. Part of the code is provided for you below.
+
+```{r}
+library(randomForest)
+fit <- randomForest(y ~ x, data = dat)
+dat %>% 
+	mutate(y_hat = predict(fit)) %>% 
+	ggplot() +
+	geom_point(aes(x, y)) +
+	geom_step(aes(x, y_hat), col = 2)
+```
+
+```{r}
+plot(fit)
+```
+
+
+# Q6
+
+It seems that the default values for the Random Forest result in an estimate that is too flexible (unsmooth). Re-run the Random Forest but this time with a node size of 50 and a maximum of 25 nodes. Remake the plot.
+
+Part of the code is provided for you below.
+
+```{r}
+library(randomForest)
+fit <- randomForest(y ~ x, data = dat, nodesize = 50, maxnodes = 25)
+dat %>% 
+	mutate(y_hat = predict(fit)) %>% 
+	ggplot() +
+	geom_point(aes(x, y)) +
+	geom_step(aes(x, y_hat), col = 2)
+```
+
+# Comprehension Check: Caret Package
+
+```{r}
+set.seed(1)
+rf <- train(y ~ x, method = "Rborist", 
+                   data = dat,
+                   )
+ggplot(rf, highlight = TRUE)
+```
+
+# Q3
+
+```{r}
+fit <- rpart(margin ~ ., data = polls_2008)
+plot(fit, margin = 0.1)
+text(fit, cex = 0.75)
+```
 
