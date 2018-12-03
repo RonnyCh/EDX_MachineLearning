@@ -1,0 +1,107 @@
+---
+title: "My Playground"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+In this workbook, I will highlight some of the skills that I need  
+to prove on and put the codes here. 
+
+# R markdown Cheat Sheets
+If you want to end a line, do two spaces before pressing enter.  
+A new paragraph will appear below otherwise it will continue
+
+* to do header use #
+* ordered list just type 1, 2 etc
+* italic  *...*
+* bold **...**
+
+# Things I would like to improve with my coding
+* ggplot
+* dplyr
+* sample
+* rnorm, qqplot etc
+* what charts they use with matrices
+
+
+# GGPLOT Practise
+
+```{r}
+
+library(dslabs)
+data(murders)
+head(murders)
+```
+
+
+```{r}
+murders %>% ggplot(aes(x=region,y=population, fill=(region))) + geom_boxplot()
+```
+
+I think the key with ggplot is as follow :
+* built ggplot and aes
+* you can add any charts with + sign
+
+
+```{r}
+data(cars)
+cars %>% ggplot(aes(x=speed,y=dist)) + geom_dotplot()
+```
+
+```{r}
+gapminder %>% ggplot(aes(y=infant_mortality,x=region)) + geom_boxplot()
+```
+
+to fix the label so you can see them you use the following.
+You can also use the sample data below to understand how to use boxplot
+
+```{r}
+
+gapminder %>% ggplot(aes(y=infant_mortality,x=region)) + geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+The code is still not right but you can also sort the box plot..
+https://rafalab.github.io/dsbook/case-study-trends-in-world-health-and-economics.html#stratify-and-boxplot
+
+Finish off later
+
+```{r}
+fac <- factor(c("Asia", "Asia", "West", "West", "West"))
+levels(fac)
+#> [1] "Asia" "West"
+
+value <- c(10, 11, 12, 6, 4)
+fac <- reorder(fac, value, FUN = mean)
+levels(fac)
+#> [1] "West" "Asia"
+
+
+p <- gapminder %>% 
+  filter(year == past_year & !is.na(gdp)) %>%
+  mutate(region = reorder(region, dollars_per_day, FUN = median)) %>%
+  ggplot(aes(region, dollars_per_day, fill = continent)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("")
+p
+
+```
+
+
+
+```{r}
+n_distinct(gapminder$region)
+
+p <- gapminder %>% 
+  filter(year == past_year & !is.na(gdp)) %>%
+  ggplot(aes(region, dollars_per_day)) 
+p + geom_boxplot() 
+```
+
