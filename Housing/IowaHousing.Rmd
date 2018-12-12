@@ -1,0 +1,150 @@
+
+
+
+This data comes from Kaggle and stored in local drive.
+
+```{r}
+setwd("H:/SharedLaptop/EDX/HarvardX/Housing")
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+```
+
+
+Only picks up numeric columns and see correlation between them
+```{r}
+nums <- unlist(lapply(train, is.numeric))  
+train <- train[,nums]
+```
+
+
+Another method to do this is via dplyr
+```{r}
+library(dplyr)
+select_if(train, is.numeric)
+```
+
+
+If you look at summary below, you notice there are some NAs
+For GarageYrBlt, replace this value with year built for house.
+For Lot Frontage where it has about 259 NAs just remove this column
+
+```{r}
+summary(train)
+```
+
+Replace with year built to replace all NAs.
+
+```{r}
+train$GarageYrBlt[is.na(train$GarageYrBlt)] = train$YearBuilt
+```
+
+Remove column LotFrontage
+
+```{r}
+train <- train[,-3]
+```
+
+
+
+Dealing with remaining NAs, prob about 8 rows left in MasVnArea. Just remove those 8 rows
+```{r}
+
+row.has.na <- apply(train,1,function(x){any(is.na(x))})
+sum(row.has.na)
+train <- train[!row.has.na,]
+
+```
+
+Now let's check summary to confirm NA has been removed.
+
+```{r}
+summary(train)
+```
+
+
+Let's find the correlation between columns or features
+From here, you can see how you can filter out corr > 0.5 and remodel the train data to include only those columns.
+Then you can run caret package to see the importance of those features.
+
+```{r}
+library(caret)
+cormatrix <- cor(train)
+highcorr <- findCorrelation(cormatrix,cutoff = 0.5)
+train <- train[,highcorr]
+```
+
+I'm going to use LM to figure out var important for my features
+
+
+```{r}
+library(caret)
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+
+# train the model
+model <- train(SalePrice~., data=train, method="lm", preProcess="scale", trControl=control)
+
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+
+# summarize importance
+print(importance)
+
+# plot importance
+plot(importance)
+
+```
+
+
+From the above plot, I'm gonna pick up features up to X2ndFlrSF and combine these with other non numeric features. 
+Will use random forest to perform this modelling later
+
+Now let's do some visualisation to check non numeric features and how they link to sale price.
+
+```{r}
+library(ggplot2)
+train2 <- read.csv("train.csv")
+summary(train2)
+
+```
+
+
+
+```{r}
+library(ggplot2)
+train2 %>% ggplot(aes(x=ExterCond,y=SalePrice)) + geom_boxplot()
+
+```
+
+
+
+
+# havent tested the one below
+
+Automatic selection for features you can use below website to see more details
+https://machinelearningmastery.com/feature-selection-with-the-caret-r-package/
+
+```{r}
+# ensure the results are repeatable
+set.seed(7)
+# load the library
+library(mlbench)
+library(caret)
+# load the data
+data(train)
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+# run the RFE algorithm
+results <- rfe(PimaIndiansDiabetes[,1:8], PimaIndiansDiabetes[,9], sizes=c(1:8), rfeControl=control)
+# summarize the results
+print(results)
+# list the chosen features
+predictors(results)
+# plot the results
+plot(results, type=c("g", "o"))
+
+```
+
+
+
+
+
