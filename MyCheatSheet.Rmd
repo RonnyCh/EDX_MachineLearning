@@ -105,3 +105,21 @@ p <- gapminder %>%
 p + geom_boxplot() 
 ```
 
+
+# **Matrices** 
+
+You can see sweep function which basically apply colmeans against 2 (column) which means  
+it will deduct the numbers
+```{r}
+a <- c(2,3,4,1,2,3)  
+a <- matrix(a,2,2)  
+
+sweep(a,2,colMeans(a))
+```
+
+
+
+
+
+
+

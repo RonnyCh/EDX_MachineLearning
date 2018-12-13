@@ -4,7 +4,7 @@
 This data comes from Kaggle and stored in local drive.
 
 ```{r}
-setwd("H:/SharedLaptop/EDX/HarvardX/Housing")
+setwd("/Users/Ronny/EDX_MachineLearning/Housing")
 train <- read.csv("train.csv")
 test <- read.csv("test.csv")
 ```
@@ -103,19 +103,99 @@ Now let's do some visualisation to check non numeric features and how they link 
 ```{r}
 library(ggplot2)
 train2 <- read.csv("train.csv")
-summary(train2)
+str(train2)
+names(train2)
 
 ```
 
 
+Select non numeric features 
+```{r}
+train2[,!(names(train2) %in% names(train2 %>% select_if(is.numeric)))]
+
+```
+
+Play around with box plot to go through non numeric features manually at the moment.
 
 ```{r}
 library(ggplot2)
-train2 %>% ggplot(aes(x=ExterCond,y=SalePrice)) + geom_boxplot()
+train2 %>% ggplot(aes(y=SalePrice,x=SaleCondition)) + geom_boxplot()
 
 ```
 
+These are Non Numeric Features
+MSZoning
+LandContour
+Condition1
+Condition2
+Neighborhood
+HouseStyle
+ExterQual
+Foundation
+HeatingQC
+CentralAir
+KitchenQual
+FireplaceQu
+GarageType
+SaleType
+SaleCondition
 
+These are numeric features
+OverallQual			
+GrLivArea			
+GarageCars	
+YearBuilt			
+TotalBsmtSF
+
+
+Now, I'm gonna use the above features against the initial dataset.
+
+```{r}
+myfeatures <- c(
+'MSZoning',
+'LandContour',
+'Condition1',
+'Condition2',
+'Neighborhood',
+'HouseStyle',
+'ExterQual',
+'Foundation',
+'HeatingQC',
+'CentralAir',
+'KitchenQual',
+'SaleType',
+'OverallQual',			
+'GrLivArea',		
+'GarageCars',	
+'YearBuilt'	,		
+'TotalBsmtSF',
+'SaleCondition',
+'SalePrice')
+
+train <- read.csv("train.csv")
+train <- train[,myfeatures]
+
+summary(train)
+
+
+```
+
+```{r}
+library(caret)
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+
+# train the model
+model <- train(SalePrice~., data=train, method="rf", preProcess="scale", trControl=control)
+
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+
+# summarize importance
+print(importance)
+
+# plot importance
+plot(importance)
+```
 
 
 # havent tested the one below
@@ -147,4 +227,8 @@ plot(results, type=c("g", "o"))
 
 
 
+```{r}
+data("airquality")
+head(airquality)
+```
 
