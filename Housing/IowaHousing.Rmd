@@ -1,7 +1,23 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 
 
 
 This data comes from Kaggle and stored in local drive.
+
+There are a few articles I found on the web helping solving the issues with Ames Housing :
+
+* https://topepo.github.io/caret/recursive-feature-elimination.html
+* http://www.rpubs.com/skorpio11/housing
+
+
+
+
+
+
 
 ```{r}
 setwd("/Users/Ronny/EDX_MachineLearning/Housing")
@@ -10,10 +26,12 @@ test <- read.csv("test.csv")
 ```
 
 
+
 Only picks up numeric columns and see correlation between them
 ```{r}
 nums <- unlist(lapply(train, is.numeric))  
 train <- train[,nums]
+
 ```
 
 
@@ -25,28 +43,22 @@ select_if(train, is.numeric)
 
 
 If you look at summary below, you notice there are some NAs
-For GarageYrBlt, replace this value with year built for house.
-For Lot Frontage where it has about 259 NAs just remove this column
 
 ```{r}
 summary(train)
 ```
 
-Replace with year built to replace all NAs.
+Replace all NAs with average
 
 ```{r}
+train$LotFrontage[is.na(train$LotFrontage)] = mean(train$LotFrontage, na.rm = TRUE)
 train$GarageYrBlt[is.na(train$GarageYrBlt)] = train$YearBuilt
+train$MasVnrArea[is.na(train$MasVnrArea)] = mean(train$MasVnrArea,na.rm = TRUE)
 ```
 
-Remove column LotFrontage
-
-```{r}
-train <- train[,-3]
-```
-
-
-
+** Not running this code but it is good to know this function **
 Dealing with remaining NAs, prob about 8 rows left in MasVnArea. Just remove those 8 rows
+
 ```{r}
 
 row.has.na <- apply(train,1,function(x){any(is.na(x))})
@@ -62,15 +74,73 @@ summary(train)
 ```
 
 
-Let's find the correlation between columns or features
-From here, you can see how you can filter out corr > 0.5 and remodel the train data to include only those columns.
-Then you can run caret package to see the importance of those features.
+# Using Corrplot to see correlation between features
+
+From the plot below you can see the following observations between features and SalePrice
+
+```{r}
+library(corrplot)
+corr <- cor(train)
+corrplot(corr, method="circle", tl.cex=0.6)   #tl.cex to adjust the label size
+```
+
+
+I'm going to reduce the number of features by using findcorrelation function to show features that are highly correlated > 0.6
+You can see the plot gives less features and you can see correlation between them.
 
 ```{r}
 library(caret)
-cormatrix <- cor(train)
-highcorr <- findCorrelation(cormatrix,cutoff = 0.5)
+highcorr <- findCorrelation(corr,cutoff = 0.6,names=TRUE)
 train <- train[,highcorr]
+
+corr <- cor(train)
+corrplot(corr, method="circle", tl.cex=0.6)   #tl.cex to adjust the label size
+
+```
+
+Observations based on the reduced plot :
+1. We can see all the important features in column 1
+2. GrLivArea highly correlated with TotRmsAbvGrd and X2ndFlrSf
+3. YearBuilt and GarageYrBlt also highly correlated
+
+Since some of these features are highly correlated, we can remove them
+
+```{r}
+library(dplyr)
+train <- train[,-c(6,7,10)]
+corr <- cor(train)
+corrplot(corr, method="circle", tl.cex=0.6)   #tl.cex to adjust the label size
+str(train)
+```
+
+
+I'm now left with 5 features for non numeric.
+1.SalePrice   
+2.GrLivArea   
+3.OverallQual
+4.X1stFlrSF   
+5.GarageCars
+
+
+
+
+# Recursive Feature Elimination (not happy with the outcome.... reviw later)
+
+For a specific model, a set of functions must be specified in rfeControl$functions. Sections below has descriptions of these sub-functions. There are a number of pre-defined sets of functions for several models, including: linear regression (in the object lmFuncs), random forests (rfFuncs), naive Bayes (nbFuncs), bagged trees (treebagFuncs) and functions that can be used with caret’s train function (caretFuncs). The latter is useful if the model has tuning parameters that must be determined at each iteration.
+
+```{r}
+x <- select(train,-SalePrice)
+y <- train[,38]
+
+subsets <- c(1:5, 10, 15, 20, 25)
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+
+lmProfile <- rfe(x, y,
+                 rfeControl = ctrl)
+lmProfile
 ```
 
 I'm going to use LM to figure out var important for my features
@@ -102,24 +172,110 @@ Now let's do some visualisation to check non numeric features and how they link 
 
 ```{r}
 library(ggplot2)
+setwd("/Users/Ronny/EDX_MachineLearning/Housing")
 train2 <- read.csv("train.csv")
-str(train2)
-names(train2)
+x <- select_if(train2,is.factor)
+x$SalePrice <- train2$SalePrice
 
+
+
+# remove some of these columns as they do not have variability 
+
+x <- select(x,-c('Street','Alley','Utilities','Condition2','RoofMatl','Heating','CentralAir','PavedDrive','PoolQC','Fence','MiscFeature'))
+
+summary(x)
 ```
 
+Based on the summary above, you can see some of the columns only contains 2 factors and probably
+not very usefull at all. They can be removed. 
 
-Select non numeric features 
+Removed NA for non numeric
 ```{r}
-train2[,!(names(train2) %in% names(train2 %>% select_if(is.numeric)))]
+x$MasVnrType[is.na(x$MasVnrType)] <- 'None'
+x$BsmtCond[is.na(x$BsmtCond)] <- 'TA'
+x$BsmtExposure[is.na(x$BsmtExposure)] <- 'No'
+x$BsmtFinType2[is.na(x$BsmtFinType2)] <- 'Unf'
+x$BsmtFinType1[is.na(x$BsmtFinType1)] <-'Unf'
+x$BsmtQual[is.na(x$BsmtQual)] <- 'TA'
+x$Electrical[is.na(x$Electrical)] <- 'SBrkr'
+x$GarageType[is.na(x$GarageType)] <- 'Attchd'
+x$GarageQual[is.na(x$GarageQual)] <- 'TA'
+x$GarageCond[is.na(x$GarageCond)] <- 'TA'
+x$FireplaceQu[is.na(x$FireplaceQu)] <- 'TA'
+x$GarageFinish[is.na(x$GarageFinish)] <- 'Unf'
+x <- select_if(x,is.factor)
+summary(x)
+```
+
+Now, I'm gonna combine train which is numeric to x which is non numeric back to 1 data frame
+```{r}
+train <- cbind(train,x)
+str(train)
+```
+
+
+Okay, let's do random forest to see the prediction if it is better than lm where MAE around $30k.
+```{r}
+
+rf <- train(SalePrice~.,method='rf',data=train)
+rf$results
+```
+
+From the results above, you can see the best result is with mtry 92
+Now, create file for submission
+
+```{r}
+myf <- names(select(train,-SalePrice))
+test <- test[,c('Id',myf)]
+
+
+#remove NA
+test$GarageYrBlt[is.na(test$GarageYrBlt)] <- 1978
+test$GarageCars[is.na(test$GarageCars)] <- 1.766
+test$MSZoning[is.na(test$MSZoning)] <- 'RL'
+test$BsmtFinSF1[is.na(test$BsmtFinSF1)] <- 439.2
+test$GarageType[is.na(test$GarageType)] <- 'Attchd'
+test$BsmtFinType1[is.na(test$BsmtFinType1)] <- 'Unf'
+test$BsmtFinType2[is.na(test$BsmtFinType2)] <- 'Unf'
+test$GarageCond[is.na(test$GarageCond)] <- 'TA'
+test$GarageQual[is.na(test$GarageQual)] <- 'TA'
+test$BsmtExposure[is.na(test$BsmtExposure)] <- 'No'
+test$BsmtCond[is.na(test$BsmtCond)] <- 'TA'
+test$BsmtQual[is.na(test$BsmtQual)] <- 'TA'
+test$FireplaceQu[is.na(test$FireplaceQu)] <- 'TA'
+test$GarageFinish[is.na(test$GarageFinish)] <- 'Unf'
+test$Exterior1st[is.na(test$Exterior1st)] <- 'VinylSd'
+test$Exterior2nd[is.na(test$Exterior2nd)] <- 'VinylSd'
+test$MasVnrType[is.na(test$MasVnrType)] <- 'BrkFace'
+test$SaleType[is.na(test$SaleType)] <- 'WD'
+test$Functional[is.na(test$Functional)] <- 'Typ'
+test$KitchenQual[is.na(test$KitchenQual)] <- 'TA'
+
+
 
 ```
+
+
+
+Now apply random forest to test data and create submission file
+```{r}
+
+SP <- predict(rf,test)
+test$SalePrice <- SP
+
+submit <- data.frame(Id = test$Id, SalePrice = test$SalePrice)
+write.csv(submit, file = "housing2.csv", row.names = FALSE)
+
+```
+
+
+
 
 Play around with box plot to go through non numeric features manually at the moment.
 
 ```{r}
 library(ggplot2)
-train2 %>% ggplot(aes(y=SalePrice,x=SaleCondition)) + geom_boxplot()
+train2 %>% ggplot(aes(y=SalePrice/100000,x=Condition2)) + geom_boxplot()
 
 ```
 
@@ -180,6 +336,18 @@ summary(train)
 
 ```
 
+# test using decision tree
+
+```{r}
+library(rpart)
+dt <- rpart(SalePrice~.,data=train)
+
+plot(dt, margin=0.1)
+text(dt, cex=0.7)
+dtpredic
+```
+
+
 ```{r}
 library(caret)
 control <- trainControl(method="repeatedcv", number=10, repeats=3)
@@ -222,13 +390,5 @@ predictors(results)
 # plot the results
 plot(results, type=c("g", "o"))
 
-```
-
-
-
-
-```{r}
-data("airquality")
-head(airquality)
 ```
 
